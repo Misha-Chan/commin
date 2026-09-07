@@ -10,6 +10,8 @@ import {
   countBookings,
 } from "@/lib/actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboard() {
   const [faqList, requestList, eventList] = await Promise.all([
     listFaqs(),
