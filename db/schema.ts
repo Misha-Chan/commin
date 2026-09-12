@@ -1,56 +1,55 @@
 import { sql } from "drizzle-orm";
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-// أسئلة شائعة يجيب عليها البوت تلقائياً
-export const faqs = sqliteTable("faqs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  question: text("question").notNull(),
-  answer: text("answer").notNull(),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-});
-
-// طلبات وشكاوى يرسلها أعضاء المجتمع عبر البوت
-export const requests = sqliteTable("requests", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  telegramUserId: text("telegram_user_id").notNull(),
-  username: text("username"),
+// مستخدمو البوت (حساب Mokuchiro + محفظة الميكو)
+export const users = sqliteTable("users", {
+  telegramId: text("telegram_id").primaryKey(),
+  telegramUsername: text("telegram_username"),
   fullName: text("full_name"),
-  type: text("type").notNull(), // "request" أو "complaint"
-  message: text("message").notNull(),
-  status: text("status").notNull().default("جديد"),
+  accountUsername: text("account_username").unique(),
+  passwordHash: text("password_hash"),
+  mikoBalance: integer("miko_balance").notNull().default(0),
+  status: text("status").notNull().default("pending"), // "pending" أو "complete"
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
 
-// فعاليات ومواعيد يمكن للأعضاء التسجيل فيها
+// سجل تحويلات الميكو التي يقوم بها المسؤول
+export const mikoTransactions = sqliteTable("miko_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  telegramId: text("telegram_id").notNull(),
+  amount: integer("amount").notNull(), // موجب = إضافة، سالب = خصم
+  balanceAfter: integer("balance_after").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// بلاغات المشاكل التي يرسلها المستخدمون عبر البوت
+export const problems = sqliteTable("problems", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  telegramId: text("telegram_id").notNull(),
+  accountUsername: text("account_username"),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("جديد"), // جديد / قيد المراجعة / تم الحل
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// الفعاليات الجديدة التي يضيفها المسؤول
 export const events = sqliteTable("events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
   description: text("description"),
-  eventDate: text("event_date").notNull(),
-  location: text("location"),
-  capacity: integer("capacity"),
+  eventDate: text("event_date"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
 
-// تسجيلات المستخدمين في الفعاليات
-export const bookings = sqliteTable("bookings", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  eventId: integer("event_id").notNull(),
-  telegramUserId: text("telegram_user_id").notNull(),
-  username: text("username"),
-  fullName: text("full_name"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-});
-
-// حالة المحادثة المؤقتة (مثلاً: ننتظر من المستخدم كتابة نص شكواه)
+// حالة المحادثة المؤقتة (مثلاً: ننتظر من المستخدم كتابة نص بلاغه)
 export const pendingActions = sqliteTable("pending_actions", {
   telegramUserId: text("telegram_user_id").primaryKey(),
   action: text("action").notNull(),

@@ -355,3 +355,122 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- إضافات لوحة الإدارة (مستخدمون / محفظة / بلاغات) ---------- */
+.inline-form {
+  display: flex;
+  gap: 6px;
+}
+
+.inline-form input {
+  width: 90px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.inline-form button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.balance-cell {
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.muted-id {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.count-alert {
+  background: var(--danger);
+}
+
+/* ---------- صفحة Telegram Web App (تسجيل الحساب) ---------- */
+.webapp-wrap {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.webapp-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.webapp-card h1 {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.webapp-card > p {
+  color: var(--ink-muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.webapp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: right;
+}
+
+.webapp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.webapp-form input {
+  padding: 11px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.webapp-form button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 12px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.webapp-form button:disabled {
+  opacity: 0.6;
+}
+
+.webapp-error {
+  color: var(--danger);
+  font-size: 14px;
+  margin: 0;
+}
+
+.webapp-success {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 16px;
+}

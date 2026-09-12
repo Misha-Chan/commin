@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="admin-shell">
       <header className="admin-header">
-        <span className="brand">لوحة الخدمات المجتمعية</span>
+        <span className="brand">🦊🌸 لوحة إدارة Mokuchiro</span>
         <form action={logoutAction}>
           <button type="submit" className="ghost-btn">
             تسجيل الخروج

@@ -18,8 +18,8 @@ export default function LoginPage({
   return (
     <main className="login-wrap">
       <form action={loginAction} className="login-card">
-        <h1>لوحة إدارة المجتمع</h1>
-        <p>أدخل كلمة المرور للوصول إلى الأسئلة الشائعة والطلبات والفعاليات</p>
+        <h1>🦊🌸 لوحة إدارة Mokuchiro</h1>
+        <p>أدخل كلمة المرور للوصول إلى المستخدمين والمحفظة والفعاليات والبلاغات</p>
         {searchParams.error && <p className="error">{searchParams.error}</p>}
         <input
           type="password"

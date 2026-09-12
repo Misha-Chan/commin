@@ -2,9 +2,9 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { eq, desc, count } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { faqs, requests, events, bookings } from "@/db/schema";
+import { users, events, problems, mikoTransactions } from "@/db/schema";
 import { buildSessionToken, SESSION_COOKIE } from "./auth";
 
 // ---------- المصادقة ----------
@@ -28,32 +28,36 @@ export async function logout() {
   cookies().delete(SESSION_COOKIE);
 }
 
-// ---------- الأسئلة الشائعة ----------
-export async function listFaqs() {
-  return db.select().from(faqs).orderBy(desc(faqs.id));
+// ---------- المستخدمون والمحفظة ----------
+export async function listUsers() {
+  return db.select().from(users).orderBy(desc(users.createdAt));
 }
 
-export async function addFaq(formData: FormData) {
-  const question = String(formData.get("question") ?? "").trim();
-  const answer = String(formData.get("answer") ?? "").trim();
-  if (!question || !answer) return;
-  await db.insert(faqs).values({ question, answer });
+export async function updateUsername(telegramId: string, newUsername: string) {
+  const clean = newUsername.trim();
+  if (!clean) return;
+  await db.update(users).set({ accountUsername: clean }).where(eq(users.telegramId, telegramId));
   revalidatePath("/admin");
 }
 
-export async function deleteFaq(id: number) {
-  await db.delete(faqs).where(eq(faqs.id, id));
+export async function deleteUser(telegramId: string) {
+  await db.delete(users).where(eq(users.telegramId, telegramId));
   revalidatePath("/admin");
 }
 
-// ---------- الطلبات والشكاوى ----------
-export async function listRequests() {
-  return db.select().from(requests).orderBy(desc(requests.id));
+export async function transferMiko(telegramId: string, amount: number) {
+  if (!amount) return;
+  const [user] = await db.select().from(users).where(eq(users.telegramId, telegramId));
+  if (!user) return;
+
+  const newBalance = Math.max(0, user.mikoBalance + amount);
+  await db.update(users).set({ mikoBalance: newBalance }).where(eq(users.telegramId, telegramId));
+  await db.insert(mikoTransactions).values({ telegramId, amount, balanceAfter: newBalance });
+  revalidatePath("/admin");
 }
 
-export async function updateRequestStatus(id: number, status: string) {
-  await db.update(requests).set({ status }).where(eq(requests.id, id));
-  revalidatePath("/admin");
+export async function listRecentTransactions(limit = 20) {
+  return db.select().from(mikoTransactions).orderBy(desc(mikoTransactions.id)).limit(limit);
 }
 
 // ---------- الفعاليات ----------
@@ -65,16 +69,12 @@ export async function addEvent(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const eventDate = String(formData.get("eventDate") ?? "").trim();
-  const location = String(formData.get("location") ?? "").trim();
-  const capacityRaw = String(formData.get("capacity") ?? "").trim();
-  if (!title || !eventDate) return;
+  if (!title) return;
 
   await db.insert(events).values({
     title,
     description: description || null,
-    eventDate,
-    location: location || null,
-    capacity: capacityRaw ? Number(capacityRaw) : null,
+    eventDate: eventDate || null,
   });
   revalidatePath("/admin");
 }
@@ -84,10 +84,20 @@ export async function deleteEvent(id: number) {
   revalidatePath("/admin");
 }
 
-export async function countBookings(eventId: number) {
+// ---------- بلاغات المشاكل ----------
+export async function listProblems() {
+  return db.select().from(problems).orderBy(desc(problems.id));
+}
+
+export async function countNewProblems() {
   const [row] = await db
-    .select({ n: count() })
-    .from(bookings)
-    .where(eq(bookings.eventId, eventId));
+    .select({ n: sql<number>`count(*)` })
+    .from(problems)
+    .where(eq(problems.status, "جديد"));
   return row?.n ?? 0;
+}
+
+export async function updateProblemStatus(id: number, status: string) {
+  await db.update(problems).set({ status }).where(eq(problems.id, id));
+  revalidatePath("/admin");
 }

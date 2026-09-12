@@ -1,34 +1,38 @@
 import {
-  listFaqs,
-  listRequests,
+  listUsers,
+  updateUsername,
+  deleteUser,
+  transferMiko,
   listEvents,
-  addFaq,
-  deleteFaq,
   addEvent,
   deleteEvent,
-  updateRequestStatus,
-  countBookings,
+  listProblems,
+  updateProblemStatus,
 } from "@/lib/actions";
+import { formatMiko } from "@/lib/miko";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [faqList, requestList, eventList] = await Promise.all([
-    listFaqs(),
-    listRequests(),
+  const [userList, eventList, problemList] = await Promise.all([
+    listUsers(),
     listEvents(),
+    listProblems(),
   ]);
-  const bookingCounts = await Promise.all(
-    eventList.map((e) => countBookings(e.id))
-  );
 
-  async function addFaqAction(formData: FormData) {
+  const newProblemsCount = problemList.filter((p) => p.status === "جديد").length;
+
+  async function updateUsernameAction(formData: FormData) {
     "use server";
-    await addFaq(formData);
+    await updateUsername(String(formData.get("telegramId")), String(formData.get("username")));
   }
-  async function deleteFaqAction(formData: FormData) {
+  async function deleteUserAction(formData: FormData) {
     "use server";
-    await deleteFaq(Number(formData.get("id")));
+    await deleteUser(String(formData.get("telegramId")));
+  }
+  async function transferMikoAction(formData: FormData) {
+    "use server";
+    await transferMiko(String(formData.get("telegramId")), Number(formData.get("amount")));
   }
   async function addEventAction(formData: FormData) {
     "use server";
@@ -38,57 +42,79 @@ export default async function AdminDashboard() {
     "use server";
     await deleteEvent(Number(formData.get("id")));
   }
-  async function updateStatusAction(formData: FormData) {
+  async function updateProblemStatusAction(formData: FormData) {
     "use server";
-    await updateRequestStatus(Number(formData.get("id")), String(formData.get("status")));
+    await updateProblemStatus(Number(formData.get("id")), String(formData.get("status")));
   }
 
   return (
     <div className="dashboard">
-      {/* الطلبات والشكاوى */}
-      <section className="panel" id="requests">
+      {/* المستخدمون والمحفظة */}
+      <section className="panel" id="users">
         <h2>
-          الطلبات والشكاوى <span className="count">{requestList.length}</span>
+          المستخدمون <span className="count">{userList.length}</span>
         </h2>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>النوع</th>
-                <th>الرسالة</th>
-                <th>المستخدم</th>
+                <th>اسم الحساب</th>
+                <th>تيليجرام</th>
+                <th>الرصيد</th>
                 <th>الحالة</th>
-                <th>التاريخ</th>
+                <th>تعديل الاسم</th>
+                <th>تحويل ميكو</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {requestList.map((r) => (
-                <tr key={r.id}>
+              {userList.map((u) => (
+                <tr key={u.telegramId}>
+                  <td>{u.accountUsername ?? "—"}</td>
                   <td>
-                    <span className={`tag ${r.type}`}>
-                      {r.type === "complaint" ? "شكوى" : "طلب"}
+                    {u.telegramUsername ? `@${u.telegramUsername}` : u.fullName || u.telegramId}
+                    <br />
+                    <span className="muted-id">#{u.telegramId}</span>
+                  </td>
+                  <td className="balance-cell">{formatMiko(u.mikoBalance)}</td>
+                  <td>
+                    <span className={`tag ${u.status === "complete" ? "request" : "complaint"}`}>
+                      {u.status === "complete" ? "مكتمل" : "غير مكتمل"}
                     </span>
                   </td>
-                  <td>{r.message}</td>
-                  <td>{r.fullName || r.username || r.telegramUserId}</td>
                   <td>
-                    <form action={updateStatusAction} className="status-form">
-                      <input type="hidden" name="id" value={r.id} />
-                      <select name="status" defaultValue={r.status}>
-                        <option value="جديد">جديد</option>
-                        <option value="قيد المعالجة">قيد المعالجة</option>
-                        <option value="مكتمل">مكتمل</option>
-                      </select>
-                      <button type="submit">تحديث</button>
+                    <form action={updateUsernameAction} className="inline-form">
+                      <input type="hidden" name="telegramId" value={u.telegramId} />
+                      <input
+                        type="text"
+                        name="username"
+                        defaultValue={u.accountUsername ?? ""}
+                        placeholder="اسم جديد"
+                      />
+                      <button type="submit">حفظ</button>
                     </form>
                   </td>
-                  <td>{r.createdAt}</td>
+                  <td>
+                    <form action={transferMikoAction} className="inline-form">
+                      <input type="hidden" name="telegramId" value={u.telegramId} />
+                      <input type="number" name="amount" placeholder="±الكمية" required />
+                      <button type="submit">تحويل</button>
+                    </form>
+                  </td>
+                  <td>
+                    <form action={deleteUserAction}>
+                      <input type="hidden" name="telegramId" value={u.telegramId} />
+                      <button type="submit" className="danger-btn">
+                        حذف
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
-              {requestList.length === 0 && (
+              {userList.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty">
-                    لا توجد طلبات أو شكاوى بعد
+                  <td colSpan={7} className="empty">
+                    لا يوجد مستخدمون بعد
                   </td>
                 </tr>
               )}
@@ -97,33 +123,54 @@ export default async function AdminDashboard() {
         </div>
       </section>
 
-      {/* الأسئلة الشائعة */}
-      <section className="panel" id="faqs">
+      {/* بلاغات المشاكل */}
+      <section className="panel" id="problems">
         <h2>
-          الأسئلة الشائعة <span className="count">{faqList.length}</span>
+          بلاغات المشاكل{" "}
+          <span className="count">{problemList.length}</span>
+          {newProblemsCount > 0 && (
+            <span className="count count-alert">{newProblemsCount} جديد</span>
+          )}
         </h2>
-        <form action={addFaqAction} className="stacked-form">
-          <input type="text" name="question" placeholder="السؤال" required />
-          <textarea name="answer" placeholder="الجواب" required rows={2} />
-          <button type="submit">إضافة سؤال</button>
-        </form>
-        <ul className="list">
-          {faqList.map((f) => (
-            <li key={f.id}>
-              <div>
-                <strong>{f.question}</strong>
-                <p>{f.answer}</p>
-              </div>
-              <form action={deleteFaqAction}>
-                <input type="hidden" name="id" value={f.id} />
-                <button type="submit" className="danger-btn">
-                  حذف
-                </button>
-              </form>
-            </li>
-          ))}
-          {faqList.length === 0 && <li className="empty">لا توجد أسئلة بعد</li>}
-        </ul>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>المستخدم</th>
+                <th>الرسالة</th>
+                <th>الحالة</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {problemList.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.accountUsername ?? p.telegramId}</td>
+                  <td>{p.message}</td>
+                  <td>
+                    <form action={updateProblemStatusAction} className="status-form">
+                      <input type="hidden" name="id" value={p.id} />
+                      <select name="status" defaultValue={p.status}>
+                        <option value="جديد">جديد</option>
+                        <option value="قيد المراجعة">قيد المراجعة</option>
+                        <option value="تم الحل">تم الحل</option>
+                      </select>
+                      <button type="submit">تحديث</button>
+                    </form>
+                  </td>
+                  <td>{p.createdAt}</td>
+                </tr>
+              ))}
+              {problemList.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="empty">
+                    لا توجد بلاغات بعد
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* الفعاليات */}
@@ -133,31 +180,17 @@ export default async function AdminDashboard() {
         </h2>
         <form action={addEventAction} className="stacked-form">
           <input type="text" name="title" placeholder="عنوان الفعالية" required />
-          <textarea name="description" placeholder="وصف مختصر" rows={2} />
-          <div className="row">
-            <input
-              type="text"
-              name="eventDate"
-              placeholder="التاريخ (مثال: 2026-09-20 18:00)"
-              required
-            />
-            <input type="text" name="location" placeholder="المكان" />
-            <input type="number" name="capacity" placeholder="عدد المقاعد (اختياري)" />
-          </div>
+          <textarea name="description" placeholder="وصف الفعالية" rows={2} />
+          <input type="text" name="eventDate" placeholder="التاريخ (اختياري، مثال: 2026-09-20 18:00)" />
           <button type="submit">إضافة فعالية</button>
         </form>
         <ul className="list">
-          {eventList.map((e, i) => (
+          {eventList.map((e) => (
             <li key={e.id}>
               <div>
                 <strong>{e.title}</strong>
-                <p>
-                  {e.eventDate}
-                  {e.location ? ` · ${e.location}` : ""}
-                </p>
-                <p className="muted">
-                  {bookingCounts[i]} مسجّل{e.capacity ? ` من ${e.capacity}` : ""}
-                </p>
+                {e.description && <p>{e.description}</p>}
+                {e.eventDate && <p className="muted">🗓 {e.eventDate}</p>}
               </div>
               <form action={deleteEventAction}>
                 <input type="hidden" name="id" value={e.id} />
