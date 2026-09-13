@@ -6,7 +6,7 @@ import Script from "next/script";
 // ---------- إعداد شبكة الهكس (إحداثيات محورية axial) ----------
 const RADIUS = 4;
 const HEX_SIZE = 26;
-const ROUNDS_LIMIT = 16; // كل جولة = دورك + دور الخصم
+const ROUNDS_LIMIT = 20; // كل جولة = دورك + دور الخصم
 
 type Axial = { q: number; r: number };
 type Owner = "player" | "ai" | null;
@@ -56,6 +56,7 @@ function hexCorners(cx: number, cy: number) {
 }
 
 const BOARD = buildBoard(RADIUS);
+const BOARD_KEYS = new Set(BOARD.map(key));
 const PLAYER_START: Axial = { q: -RADIUS, r: 0 };
 const AI_START: Axial = { q: RADIUS, r: 0 };
 
@@ -67,17 +68,60 @@ function initialOwners() {
   return owners;
 }
 
+// حركات مسموحة: فقط الخانات الفارغة (المحايدة) الملاصقة لأرضك.
+// ما فيه هجوم مباشر على خانات الخصم إطلاقاً — الطريقة الوحيدة لأخذ
+// خانات إضافية هي "الحصار" (تطويق منطقة فاضية بالكامل بأرضك).
 function legalMoves(owners: Record<string, Owner>, side: "player" | "ai") {
   const targets = new Set<string>();
   for (const tile of BOARD) {
     if (owners[key(tile)] !== side) continue;
     for (const n of neighbors(tile)) {
       const nKey = key(n);
-      if (owners[nKey] === undefined) continue; // خارج حدود اللوحة
-      if (owners[nKey] !== side) targets.add(nKey);
+      if (!BOARD_KEYS.has(nKey)) continue;
+      if (owners[nKey] === null) targets.add(nKey);
     }
   }
   return targets;
+}
+
+// يحصر أي منطقة فارغة أصبحت محاطة بالكامل بأراضي مملوكة (من أي جهة)
+// ولا تتصل بحافة اللوحة، ويعطيها بالكامل للاعب الذي أنهى للتو حركته.
+function captureEnclosedRegions(owners: Record<string, Owner>, mover: "player" | "ai") {
+  const reachableFromEdge = new Set<string>();
+  const stack: Axial[] = [];
+
+  for (const tile of BOARD) {
+    const k = key(tile);
+    if (owners[k] !== null) continue;
+    const touchesOutside = neighbors(tile).some((n) => !BOARD_KEYS.has(key(n)));
+    if (touchesOutside) {
+      reachableFromEdge.add(k);
+      stack.push(tile);
+    }
+  }
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    for (const n of neighbors(current)) {
+      const nKey = key(n);
+      if (!BOARD_KEYS.has(nKey)) continue;
+      if (owners[nKey] !== null) continue; // خانة مملوكة = جدار يوقف الفيضان
+      if (reachableFromEdge.has(nKey)) continue;
+      reachableFromEdge.add(nKey);
+      stack.push(n);
+    }
+  }
+
+  const next = { ...owners };
+  let capturedAny = false;
+  for (const tile of BOARD) {
+    const k = key(tile);
+    if (owners[k] === null && !reachableFromEdge.has(k)) {
+      next[k] = mover;
+      capturedAny = true;
+    }
+  }
+  return { owners: next, capturedAny };
 }
 
 function chooseAiMove(owners: Record<string, Owner>) {
@@ -92,13 +136,17 @@ function chooseAiMove(owners: Record<string, Owner>) {
     const tile = { q, r };
     let score = Math.random(); // كسر التعادل بعشوائية بسيطة
 
-    if (owners[candidateKey] === "player") score += 3; // هجوم على أرض الخصم
     for (const n of neighbors(tile)) {
       const nKey = key(n);
-      if (!(nKey in owners)) continue;
+      if (!BOARD_KEYS.has(nKey)) continue;
       if (owners[nKey] === null) score += 1; // إمكانية توسّع مستقبلية
-      if (owners[nKey] === "player") score += 1.5; // خانة تلامس أرض الخصم (خط جبهة)
+      if (owners[nKey] === "player") score += 2; // خانة تلامس أرض الخصم (تضيّق عليه لحصاره)
     }
+
+    // تجربة الحركة فعلياً: هل بتحصر منطقة فوراً؟ إذا نعم أعطها أولوية عالية جداً
+    const trial = { ...owners, [candidateKey]: "ai" as Owner };
+    const { capturedAny } = captureEnclosedRegions(trial, "ai");
+    if (capturedAny) score += 10;
 
     if (score > bestScore) {
       bestScore = score;
@@ -135,7 +183,11 @@ export default function HexWarGame() {
     setAiThinking(true);
     setTimeout(() => {
       const move = chooseAiMove(afterPlayerOwners);
-      const finalOwners = move ? { ...afterPlayerOwners, [move]: "ai" as Owner } : afterPlayerOwners;
+      let finalOwners = afterPlayerOwners;
+      if (move) {
+        finalOwners = { ...afterPlayerOwners, [move]: "ai" as Owner };
+        finalOwners = captureEnclosedRegions(finalOwners, "ai").owners;
+      }
       setOwners(finalOwners);
       setRoundsLeft(nextRoundsLeft);
       setAiThinking(false);
@@ -147,7 +199,8 @@ export default function HexWarGame() {
     if (gameOver || aiThinking) return;
     if (!playerMoves.has(tileKey)) return;
 
-    const afterPlayerOwners = { ...owners, [tileKey]: "player" as Owner };
+    let afterPlayerOwners: Record<string, Owner> = { ...owners, [tileKey]: "player" };
+    afterPlayerOwners = captureEnclosedRegions(afterPlayerOwners, "player").owners;
     setOwners(afterPlayerOwners);
     playAiTurn(afterPlayerOwners, roundsLeft - 1);
   }
@@ -168,8 +221,8 @@ export default function HexWarGame() {
 
   let resultText = "";
   if (gameOver) {
-    if (playerCount > aiCount) resultText = "فزت! 🎉 أراضيك أكبر من الخصم";
-    else if (playerCount < aiCount) resultText = "خسرت 😅 وسّع الخصم أراضيه أكثر منك";
+    if (playerCount > aiCount) resultText = "فزت! 🎉 حاصرت أراضٍ أكثر من الخصم";
+    else if (playerCount < aiCount) resultText = "خسرت 😅 الخصم حاصر أراضٍ أكثر منك";
     else resultText = "تعادل 🤝 نفس عدد الخانات بالضبط";
   }
 
@@ -186,7 +239,7 @@ export default function HexWarGame() {
       <main className="hexgame-wrap">
         <div className="hexgame-card">
           <h1>🦊 حرب الأراضي</h1>
-          <p className="hexgame-sub">وسّع أراضيك أكثر من الخصم قبل ما تنتهي الجولات</p>
+          <p className="hexgame-sub">احصر مناطق فاضية بالكامل بأراضيك قبل ما تنتهي الجولات</p>
 
           <div className="hexgame-scores">
             <span className="hexgame-score hexgame-score-player">أنت: {playerCount}</span>
@@ -231,7 +284,8 @@ export default function HexWarGame() {
             </div>
           ) : (
             <p className="hexgame-rules">
-              اضغط على خانة مضيئة ملاصقة لأرضك (الأخضر) لتوسيعها. الخصم (الكحلي) يتحرك تلقائياً بعدك.
+              وسّع أرضك (الأخضر) بالضغط على خانة مضيئة ملاصقة لها. لا يمكنك مهاجمة أرض الخصم
+              (الكحلي) مباشرة — بس لو حاصرت منطقة فاضية بالكامل بأراضيك، تاخذها دفعة وحدة! 🏯
             </p>
           )}
         </div>
