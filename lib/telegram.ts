@@ -24,13 +24,15 @@ function displayName(from: { first_name?: string; last_name?: string; username?:
   return name || from.username || "بدون اسم";
 }
 
-function mainMenu() {
+function mainMenu(appUrl: string) {
   return new InlineKeyboard()
     .text("💰 محفظتي", "wallet_open")
     .row()
     .text("🎉 الفعاليات الجديدة", "events_open")
     .row()
-    .text("⚠️ الإبلاغ عن مشكلة", "report_open");
+    .text("⚠️ الإبلاغ عن مشكلة", "report_open")
+    .row()
+    .webApp("🎮 لعبة: حرب الأراضي", `${appUrl.replace(/\/$/, "")}/webapp/game`);
 }
 
 function backKeyboard() {
@@ -84,13 +86,13 @@ bot.command("start", async (ctx) => {
 
   await ctx.reply(
     `أهلاً بك مجدداً، ${existing.accountUsername} 👋\nمعرفك: ${telegramId}`,
-    { reply_markup: mainMenu() }
+    { reply_markup: mainMenu(requireAppUrl()) }
   );
 });
 
 bot.callbackQuery("menu_main", async (ctx) => {
   await safeAnswerCallback(ctx);
-  await ctx.reply("القائمة الرئيسية:", { reply_markup: mainMenu() });
+  await ctx.reply("القائمة الرئيسية:", { reply_markup: mainMenu(requireAppUrl()) });
 });
 
 // ---------- محفظتي ----------
