@@ -24,17 +24,31 @@ function displayName(from: { first_name?: string; last_name?: string; username?:
   return name || from.username || "بدون اسم";
 }
 
-function mainMenu() {
+function mainMenu(appUrl: string) {
   return new InlineKeyboard()
     .text("💰 محفظتي", "wallet_open")
     .row()
     .text("🎉 الفعاليات الجديدة", "events_open")
     .row()
-    .text("⚠️ الإبلاغ عن مشكلة", "report_open");
+    .text("⚠️ الإبلاغ عن مشكلة", "report_open")
+    .row()
+    .webApp("🎮 لعبة: حرب الأراضي", `${appUrl.replace(/\/$/, "")}/webapp/game`);
 }
 
 function backKeyboard() {
   return new InlineKeyboard().text("« رجوع للقائمة", "menu_main");
+}
+
+// بعض طلبات الزر قد تصل متأخرة (خصوصاً بعد سكون السيرفر على Vercel)،
+// فتنتهي صلاحيتها قبل ما نرد عليها. هاد غير خطير أبداً (تأثيره الوحيد
+// إنه دائرة التحميل الصغيرة عالزر بتضل لحظة)، فنتجاهل هاد الخطأ تحديداً
+// بدل ما نوقف تنفيذ باقي الرد.
+async function safeAnswerCallback(ctx: any) {
+  try {
+    await ctx.answerCallbackQuery();
+  } catch (err) {
+    console.warn("answerCallbackQuery skipped (query expired):", err);
+  }
 }
 
 async function sendRegistrationPrompt(ctx: any) {
@@ -72,18 +86,18 @@ bot.command("start", async (ctx) => {
 
   await ctx.reply(
     `أهلاً بك مجدداً، ${existing.accountUsername} 👋\nمعرفك: ${telegramId}`,
-    { reply_markup: mainMenu() }
+    { reply_markup: mainMenu(requireAppUrl()) }
   );
 });
 
 bot.callbackQuery("menu_main", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("القائمة الرئيسية:", { reply_markup: mainMenu() });
+  await safeAnswerCallback(ctx);
+  await ctx.reply("القائمة الرئيسية:", { reply_markup: mainMenu(requireAppUrl()) });
 });
 
 // ---------- محفظتي ----------
 bot.callbackQuery("wallet_open", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await safeAnswerCallback(ctx);
   const telegramId = String(ctx.from!.id);
   const [user] = await db.select().from(users).where(eq(users.telegramId, telegramId));
   const balance = user?.mikoBalance ?? 0;
@@ -114,7 +128,7 @@ bot.callbackQuery("wallet_open", async (ctx) => {
 
 // ---------- الفعاليات الجديدة ----------
 bot.callbackQuery("events_open", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await safeAnswerCallback(ctx);
   const list = await db.select().from(events).orderBy(sql`id desc`);
 
   if (list.length === 0) {
@@ -133,7 +147,7 @@ bot.callbackQuery("events_open", async (ctx) => {
 
 // ---------- الإبلاغ عن مشكلة ----------
 bot.callbackQuery("report_open", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await safeAnswerCallback(ctx);
   const telegramId = String(ctx.from!.id);
 
   await db
