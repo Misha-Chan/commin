@@ -173,28 +173,42 @@ export default function HexWarGame() {
 
   const playerMoves = useMemo(() => legalMoves(owners, "player"), [owners]);
 
-  function checkGameOver(nextOwners: Record<string, Owner>) {
-    const noNeutralLeft =
-      Object.values(nextOwners).filter((o) => o === null).length === 0;
-    const playerCanMove = legalMoves(nextOwners, "player").size > 0;
-    const aiCanMove = legalMoves(nextOwners, "ai").size > 0;
-    if (noNeutralLeft || (!playerCanMove && !aiCanMove)) {
-      setGameOver(true);
-    }
+  function isGameOver(currentOwners: Record<string, Owner>) {
+    const boardFull = Object.values(currentOwners).every((o) => o !== null);
+    const playerCanMove = legalMoves(currentOwners, "player").size > 0;
+    const aiCanMove = legalMoves(currentOwners, "ai").size > 0;
+    return boardFull || (!playerCanMove && !aiCanMove);
   }
 
-  function playAiTurn(afterPlayerOwners: Record<string, Owner>) {
+  // ينفّذ دور الخصم، وإذا صار اللاعب محاصراً بالكامل (ما عنده أي حركة) بس
+  // الخصم لسا قادر يكمل، يواصل الخصم أدواره تلقائياً بدل ما ينتظر ضغطة
+  // من اللاعب ما رح توصل أبداً — وهيك ما تتجمد اللعبة.
+  function performAiTurn(currentOwners: Record<string, Owner>) {
     setAiThinking(true);
     setTimeout(() => {
-      const move = chooseAiMove(afterPlayerOwners);
-      let finalOwners = afterPlayerOwners;
+      const move = chooseAiMove(currentOwners);
+      let finalOwners = currentOwners;
       if (move) {
-        finalOwners = { ...afterPlayerOwners, [move]: "ai" as Owner };
+        finalOwners = { ...currentOwners, [move]: "ai" as Owner };
         finalOwners = captureEnclosedRegions(finalOwners, "ai").owners;
       }
       setOwners(finalOwners);
+
+      if (isGameOver(finalOwners)) {
+        setAiThinking(false);
+        setGameOver(true);
+        return;
+      }
+
+      const playerCanMove = legalMoves(finalOwners, "player").size > 0;
+      const aiCanMove = legalMoves(finalOwners, "ai").size > 0;
+
+      if (!playerCanMove && aiCanMove) {
+        performAiTurn(finalOwners); // اللاعب محاصر: الخصم يكمل لحاله
+        return;
+      }
+
       setAiThinking(false);
-      checkGameOver(finalOwners);
     }, 450);
   }
 
@@ -206,13 +220,17 @@ export default function HexWarGame() {
     afterPlayerOwners = captureEnclosedRegions(afterPlayerOwners, "player").owners;
     setOwners(afterPlayerOwners);
 
-    const stillNeutral = Object.values(afterPlayerOwners).some((o) => o === null);
-    const aiCanMove = legalMoves(afterPlayerOwners, "ai").size > 0;
-    if (!stillNeutral || !aiCanMove) {
-      checkGameOver(afterPlayerOwners);
-      if (!stillNeutral) return; // انتهت اللعبة بأخذ آخر بقعة، ما داعي دور الخصم
+    if (isGameOver(afterPlayerOwners)) {
+      setGameOver(true);
+      return;
     }
-    playAiTurn(afterPlayerOwners);
+
+    const aiCanMove = legalMoves(afterPlayerOwners, "ai").size > 0;
+    if (aiCanMove) {
+      performAiTurn(afterPlayerOwners);
+    }
+    // إذا الخصم عالق بس اللاعب لسا قادر يلعب، ما في داعي لأي شي إضافي هلق —
+    // دور اللاعب بيكمل عادي بالضغطة الجاية.
   }
 
   function resetGame() {
