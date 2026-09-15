@@ -45,14 +45,16 @@ export async function deleteUser(telegramId: string) {
   revalidatePath("/admin");
 }
 
-export async function transferMiko(telegramId: string, amount: number) {
+export async function transferMiko(telegramId: string, amount: number, reason?: string) {
   if (!amount) return;
   const [user] = await db.select().from(users).where(eq(users.telegramId, telegramId));
   if (!user) return;
 
   const newBalance = Math.max(0, user.mikoBalance + amount);
   await db.update(users).set({ mikoBalance: newBalance }).where(eq(users.telegramId, telegramId));
-  await db.insert(mikoTransactions).values({ telegramId, amount, balanceAfter: newBalance });
+  await db
+    .insert(mikoTransactions)
+    .values({ telegramId, amount, balanceAfter: newBalance, reason: reason ?? null });
   revalidatePath("/admin");
 }
 

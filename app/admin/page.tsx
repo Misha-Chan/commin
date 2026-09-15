@@ -3,6 +3,7 @@ import {
   updateUsername,
   deleteUser,
   transferMiko,
+  listRecentTransactions,
   listEvents,
   addEvent,
   deleteEvent,
@@ -14,10 +15,11 @@ import { formatMiko } from "@/lib/miko";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [userList, eventList, problemList] = await Promise.all([
+  const [userList, eventList, problemList, transactionList] = await Promise.all([
     listUsers(),
     listEvents(),
     listProblems(),
+    listRecentTransactions(15),
   ]);
 
   const newProblemsCount = problemList.filter((p) => p.status === "جديد").length;
@@ -32,7 +34,11 @@ export default async function AdminDashboard() {
   }
   async function transferMikoAction(formData: FormData) {
     "use server";
-    await transferMiko(String(formData.get("telegramId")), Number(formData.get("amount")));
+    await transferMiko(
+      String(formData.get("telegramId")),
+      Number(formData.get("amount")),
+      "تحويل من الإدارة"
+    );
   }
   async function addEventAction(formData: FormData) {
     "use server";
@@ -115,6 +121,48 @@ export default async function AdminDashboard() {
                 <tr>
                   <td colSpan={7} className="empty">
                     لا يوجد مستخدمون بعد
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* آخر التحويلات (يدوية أو من اللعبة) */}
+      <section className="panel" id="transactions">
+        <h2>
+          آخر التحويلات <span className="count">{transactionList.length}</span>
+        </h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>المستخدم</th>
+                <th>الكمية</th>
+                <th>السبب</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactionList.map((t) => {
+                const owner = userList.find((u) => u.telegramId === t.telegramId);
+                return (
+                  <tr key={t.id}>
+                    <td>{owner?.accountUsername ?? t.telegramId}</td>
+                    <td className={t.amount >= 0 ? "amount-positive" : "amount-negative"}>
+                      {t.amount >= 0 ? "+" : ""}
+                      {formatMiko(t.amount)}
+                    </td>
+                    <td>{t.reason ?? "—"}</td>
+                    <td>{t.createdAt}</td>
+                  </tr>
+                );
+              })}
+              {transactionList.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="empty">
+                    لا توجد تحويلات بعد
                   </td>
                 </tr>
               )}

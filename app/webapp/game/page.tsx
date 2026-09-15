@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
+import { formatMiko } from "@/lib/miko";
 
 // ---------- إعداد شبكة الهكس (إحداثيات محورية axial) ----------
 const RADIUS = 6; // لوحة أكبر (127 خانة)
@@ -160,6 +161,8 @@ export default function HexWarGame() {
   const [owners, setOwners] = useState<Record<string, Owner>>(() => initialOwners());
   const [aiThinking, setAiThinking] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [rewardMessage, setRewardMessage] = useState<string | null>(null);
+  const rewardClaimedRef = useRef(false);
 
   const playerCount = useMemo(
     () => Object.values(owners).filter((o) => o === "player").length,
@@ -216,7 +219,44 @@ export default function HexWarGame() {
     setOwners(initialOwners());
     setGameOver(false);
     setAiThinking(false);
+    setRewardMessage(null);
+    rewardClaimedRef.current = false;
   }
+
+  // لما تنتهي اللعبة، اطلبي مكافأة الميكو مرة وحدة فقط (يتحقق السيرفر
+  // من هويتك عبر تيليجرام قبل ما يضيف أي رصيد).
+  useEffect(() => {
+    if (!gameOver || rewardClaimedRef.current) return;
+    rewardClaimedRef.current = true;
+
+    const result = playerCount > aiCount ? "win" : playerCount < aiCount ? "loss" : "draw";
+    const initData = window.Telegram?.WebApp?.initData ?? "";
+
+    if (!initData) {
+      setRewardMessage("افتح اللعبة من داخل البوت عشان تفعّل مكافآت الميكو 🌸");
+      return;
+    }
+
+    fetch("/api/webapp/game-reward", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData, result }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.error) {
+          setRewardMessage(data.error);
+        } else if (data?.throttled) {
+          setRewardMessage(null);
+        } else if (data?.amount > 0) {
+          setRewardMessage(`+ ${formatMiko(data.amount)} انضافت لمحفظتك 🌸`);
+        }
+      })
+      .catch(() => {
+        setRewardMessage(null);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameOver]);
 
   const xs = BOARD.map((t) => axialToPixel(t).x);
   const ys = BOARD.map((t) => axialToPixel(t).y);
@@ -294,6 +334,7 @@ export default function HexWarGame() {
           {gameOver ? (
             <div className="hexgame-banner">
               <p>{resultText}</p>
+              {rewardMessage && <p className="hexgame-reward">{rewardMessage}</p>}
               <button onClick={resetGame}>لعبة جديدة</button>
             </div>
           ) : (

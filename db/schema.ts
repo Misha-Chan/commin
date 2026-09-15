@@ -10,6 +10,7 @@ export const users = sqliteTable("users", {
   passwordHash: text("password_hash"),
   mikoBalance: integer("miko_balance").notNull().default(0),
   status: text("status").notNull().default("pending"), // "pending" أو "complete"
+  lastGameRewardAt: text("last_game_reward_at"), // لمنع تكرار مكافأة اللعبة بسرعة غير طبيعية
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -21,6 +22,7 @@ export const mikoTransactions = sqliteTable("miko_transactions", {
   telegramId: text("telegram_id").notNull(),
   amount: integer("amount").notNull(), // موجب = إضافة، سالب = خصم
   balanceAfter: integer("balance_after").notNull(),
+  reason: text("reason"), // مثلاً: "تحويل من الإدارة" أو "لعبة حرب الأراضي"
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

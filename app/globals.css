@@ -397,6 +397,16 @@ th {
   background: var(--danger);
 }
 
+.amount-positive {
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.amount-negative {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 /* ---------- صفحة Telegram Web App (تسجيل الحساب) ---------- */
 .webapp-wrap {
   min-height: 100dvh;
@@ -605,6 +615,12 @@ th {
   font-weight: 700;
   font-size: 17px;
   margin-bottom: 12px;
+}
+
+.hexgame-reward {
+  color: var(--accent);
+  font-size: 14.5px !important;
+  font-weight: 700;
 }
 
 .hexgame-banner button {
