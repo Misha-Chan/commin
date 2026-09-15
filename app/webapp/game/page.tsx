@@ -4,9 +4,8 @@ import { useMemo, useState } from "react";
 import Script from "next/script";
 
 // ---------- إعداد شبكة الهكس (إحداثيات محورية axial) ----------
-const RADIUS = 4;
-const HEX_SIZE = 26;
-const ROUNDS_LIMIT = 20; // كل جولة = دورك + دور الخصم
+const RADIUS = 6; // لوحة أكبر (127 خانة)
+const HEX_SIZE = 24;
 
 type Axial = { q: number; r: number };
 type Owner = "player" | "ai" | null;
@@ -57,6 +56,7 @@ function hexCorners(cx: number, cy: number) {
 
 const BOARD = buildBoard(RADIUS);
 const BOARD_KEYS = new Set(BOARD.map(key));
+const TOTAL_TILES = BOARD.length;
 const PLAYER_START: Axial = { q: -RADIUS, r: 0 };
 const AI_START: Axial = { q: RADIUS, r: 0 };
 
@@ -143,7 +143,6 @@ function chooseAiMove(owners: Record<string, Owner>) {
       if (owners[nKey] === "player") score += 2; // خانة تلامس أرض الخصم (تضيّق عليه لحصاره)
     }
 
-    // تجربة الحركة فعلياً: هل بتحصر منطقة فوراً؟ إذا نعم أعطها أولوية عالية جداً
     const trial = { ...owners, [candidateKey]: "ai" as Owner };
     const { capturedAny } = captureEnclosedRegions(trial, "ai");
     if (capturedAny) score += 10;
@@ -159,7 +158,6 @@ function chooseAiMove(owners: Record<string, Owner>) {
 
 export default function HexWarGame() {
   const [owners, setOwners] = useState<Record<string, Owner>>(() => initialOwners());
-  const [roundsLeft, setRoundsLeft] = useState(ROUNDS_LIMIT);
   const [aiThinking, setAiThinking] = useState(false);
   const [gameOver, setGameOver] = useState(false);
 
@@ -168,18 +166,21 @@ export default function HexWarGame() {
     [owners]
   );
   const aiCount = useMemo(() => Object.values(owners).filter((o) => o === "ai").length, [owners]);
+  const neutralCount = TOTAL_TILES - playerCount - aiCount;
 
   const playerMoves = useMemo(() => legalMoves(owners, "player"), [owners]);
 
-  function endRoundIfNeeded(nextOwners: Record<string, Owner>, nextRoundsLeft: number) {
+  function checkGameOver(nextOwners: Record<string, Owner>) {
+    const noNeutralLeft =
+      Object.values(nextOwners).filter((o) => o === null).length === 0;
     const playerCanMove = legalMoves(nextOwners, "player").size > 0;
     const aiCanMove = legalMoves(nextOwners, "ai").size > 0;
-    if (nextRoundsLeft <= 0 || (!playerCanMove && !aiCanMove)) {
+    if (noNeutralLeft || (!playerCanMove && !aiCanMove)) {
       setGameOver(true);
     }
   }
 
-  function playAiTurn(afterPlayerOwners: Record<string, Owner>, nextRoundsLeft: number) {
+  function playAiTurn(afterPlayerOwners: Record<string, Owner>) {
     setAiThinking(true);
     setTimeout(() => {
       const move = chooseAiMove(afterPlayerOwners);
@@ -189,10 +190,9 @@ export default function HexWarGame() {
         finalOwners = captureEnclosedRegions(finalOwners, "ai").owners;
       }
       setOwners(finalOwners);
-      setRoundsLeft(nextRoundsLeft);
       setAiThinking(false);
-      endRoundIfNeeded(finalOwners, nextRoundsLeft);
-    }, 500);
+      checkGameOver(finalOwners);
+    }, 450);
   }
 
   function handleTileClick(tileKey: string) {
@@ -202,12 +202,18 @@ export default function HexWarGame() {
     let afterPlayerOwners: Record<string, Owner> = { ...owners, [tileKey]: "player" };
     afterPlayerOwners = captureEnclosedRegions(afterPlayerOwners, "player").owners;
     setOwners(afterPlayerOwners);
-    playAiTurn(afterPlayerOwners, roundsLeft - 1);
+
+    const stillNeutral = Object.values(afterPlayerOwners).some((o) => o === null);
+    const aiCanMove = legalMoves(afterPlayerOwners, "ai").size > 0;
+    if (!stillNeutral || !aiCanMove) {
+      checkGameOver(afterPlayerOwners);
+      if (!stillNeutral) return; // انتهت اللعبة بأخذ آخر بقعة، ما داعي دور الخصم
+    }
+    playAiTurn(afterPlayerOwners);
   }
 
   function resetGame() {
     setOwners(initialOwners());
-    setRoundsLeft(ROUNDS_LIMIT);
     setGameOver(false);
     setAiThinking(false);
   }
@@ -226,6 +232,9 @@ export default function HexWarGame() {
     else resultText = "تعادل 🤝 نفس عدد الخانات بالضبط";
   }
 
+  const playerPct = (playerCount / TOTAL_TILES) * 100;
+  const aiPct = (aiCount / TOTAL_TILES) * 100;
+
   return (
     <>
       <Script
@@ -239,12 +248,17 @@ export default function HexWarGame() {
       <main className="hexgame-wrap">
         <div className="hexgame-card">
           <h1>🦊 حرب الأراضي</h1>
-          <p className="hexgame-sub">احصر مناطق فاضية بالكامل بأراضيك قبل ما تنتهي الجولات</p>
+          <p className="hexgame-sub">احصر كل الأرض الفاضية بأراضيك قبل ما يوخذ آخر بقعة</p>
 
           <div className="hexgame-scores">
-            <span className="hexgame-score hexgame-score-player">أنت: {playerCount}</span>
-            <span className="hexgame-score hexgame-score-rounds">جولات متبقية: {roundsLeft}</span>
-            <span className="hexgame-score hexgame-score-ai">الخصم: {aiCount}</span>
+            <span className="hexgame-score hexgame-score-player">🟢 أنت: {playerCount}</span>
+            <span className="hexgame-score hexgame-score-neutral">فاضي: {neutralCount}</span>
+            <span className="hexgame-score hexgame-score-ai">الخصم: {aiCount} 🟣</span>
+          </div>
+
+          <div className="hexgame-bar" aria-hidden="true">
+            <span className="hexgame-bar-player" style={{ width: `${playerPct}%` }} />
+            <span className="hexgame-bar-ai" style={{ width: `${aiPct}%` }} />
           </div>
 
           <svg
@@ -284,8 +298,9 @@ export default function HexWarGame() {
             </div>
           ) : (
             <p className="hexgame-rules">
-              وسّع أرضك (الأخضر) بالضغط على خانة مضيئة ملاصقة لها. لا يمكنك مهاجمة أرض الخصم
-              (الكحلي) مباشرة — بس لو حاصرت منطقة فاضية بالكامل بأراضيك، تاخذها دفعة وحدة! 🏯
+              وسّع أرضك (الأخضر) بالضغط على خانة محاطة بإطار ذهبي ملاصقة لها. لا يمكنك مهاجمة
+              أرض الخصم (البنفسجي) مباشرة — بس لو حاصرت منطقة فاضية بالكامل بأراضيك، تاخذها
+              دفعة وحدة! 🏯
             </p>
           )}
         </div>

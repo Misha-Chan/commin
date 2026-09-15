@@ -484,27 +484,29 @@ th {
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: var(--bg);
+  background: radial-gradient(circle at top, #f4f8f1, var(--bg) 65%);
 }
 
 .hexgame-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 560px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 18px 26px;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px -20px rgba(18, 51, 41, 0.35);
+  padding: 26px 22px 30px;
   text-align: center;
 }
 
 .hexgame-card h1 {
-  font-size: 22px;
+  font-size: 26px;
+  letter-spacing: 0.2px;
 }
 
 .hexgame-sub {
   color: var(--ink-muted);
-  font-size: 13px;
-  margin: 6px 0 16px;
+  font-size: 13.5px;
+  margin: 6px 0 18px;
 }
 
 .hexgame-scores {
@@ -512,14 +514,14 @@ th {
   justify-content: space-between;
   align-items: center;
   gap: 6px;
-  margin-bottom: 14px;
-  font-size: 13px;
+  margin-bottom: 8px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
 .hexgame-score {
-  padding: 5px 9px;
-  border-radius: var(--radius);
+  padding: 6px 11px;
+  border-radius: 999px;
   white-space: nowrap;
 }
 
@@ -533,9 +535,28 @@ th {
   color: var(--rival);
 }
 
-.hexgame-score-rounds {
+.hexgame-score-neutral {
   color: var(--ink-muted);
   font-weight: 500;
+}
+
+.hexgame-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--tile-neutral);
+  margin-bottom: 18px;
+}
+
+.hexgame-bar-player {
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+
+.hexgame-bar-ai {
+  background: var(--rival);
+  transition: width 0.4s ease;
 }
 
 .hexgame-board {
@@ -547,8 +568,8 @@ th {
 .hex-tile {
   fill: var(--tile-neutral);
   stroke: var(--surface);
-  stroke-width: 1.5;
-  transition: fill 0.15s ease;
+  stroke-width: 1.2;
+  transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
 }
 
 .hex-tile-player {
@@ -561,35 +582,37 @@ th {
 
 .hex-tile-playable {
   cursor: pointer;
-  fill: var(--accent);
+  stroke: var(--accent);
+  stroke-width: 2.75;
 }
 
 .hex-tile-playable:hover {
-  opacity: 0.85;
+  fill: rgba(201, 138, 44, 0.22);
 }
 
 .hexgame-rules {
-  margin-top: 16px;
+  margin-top: 18px;
   color: var(--ink-muted);
   font-size: 12.5px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .hexgame-banner {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .hexgame-banner p {
   font-weight: 700;
-  font-size: 16px;
-  margin-bottom: 10px;
+  font-size: 17px;
+  margin-bottom: 12px;
 }
 
 .hexgame-banner button {
   background: var(--primary);
   color: #fff;
   border: none;
-  padding: 10px 20px;
+  padding: 11px 22px;
   border-radius: var(--radius);
   font-weight: 700;
+  font-size: 14.5px;
 }
