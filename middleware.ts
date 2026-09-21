@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { ADMIN_COOKIE, verifyAdminToken } from "@/lib/auth";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (pathname === "/admin/login") return NextResponse.next();
 
-  if (pathname === "/admin/login") {
-    return NextResponse.next();
-  }
-  if (!pathname.startsWith("/admin")) {
-    return NextResponse.next();
-  }
-
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const valid = await verifySessionToken(token);
-
+  const valid = await verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
   if (!valid) {
     const url = req.nextUrl.clone();
     url.pathname = "/admin/login";
+    url.search = "";
     return NextResponse.redirect(url);
   }
-
   return NextResponse.next();
 }
 
